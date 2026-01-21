@@ -1,6 +1,6 @@
 {
   "name": "todolist",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "dist-electron/main/index.js",
   "description": "一个现代化的桌面待办事项管理应用",
   "author": "Scott Yan",
