@@ -1,6 +1,6 @@
 {
   "name": "todolist",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "dist-electron/main/index.js",
   "description": "一个现代化的桌面待办事项管理应用",
   "author": "Scott Yan",
@@ -14,10 +14,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && electron-builder",
-    "type-check": "vue-tsc --noEmit",
-    "preview": "vite preview",
-    "postinstall": "electron-builder install-app-deps"
+    "build": "npx vite build && npx electron-builder",
+    "type-check": "npx vue-tsc --noEmit",
+    "preview": "vite preview"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

@@ -29,12 +29,13 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        # Use npm ci for clean install, and ignore scripts to prevent native build failures during install
+        # Electron-builder will handle native rebuilds during packaging
+        run: npm ci --ignore-scripts
 
-      # Separate type checking to avoid blocking the build if there are environmental TS issues on Windows
       - name: Type Check
         run: npm run type-check
-        continue-on-error: true # Allow build to proceed even if type-check has issues on certain runners
+        continue-on-error: true
 
       - name: Build and Package
         env:
