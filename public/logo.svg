@@ -1,28 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
+    <!-- Modern Gradient -->
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#6366f1"/>
-      <stop offset="100%" style="stop-color:#4f46e5"/>
+      <stop offset="100%" style="stop-color:#4338ca"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    
+    <!-- Subtle Inner Shadow for Depth -->
+    <filter id="innerShadow">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur stdDeviation="3" result="offset-blur"/>
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+      <feFlood flood-color="black" flood-opacity="0.2" result="color"/>
+      <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+      <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
     </filter>
   </defs>
   
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="240" fill="url(#bg)" filter="url(#shadow)"/>
+  <!-- Solid Background (No transparency at corners to avoid Dock issues) -->
+  <rect width="512" height="512" fill="white"/>
   
-  <!-- Checkmark -->
-  <path d="M180 256 L230 306 L332 204" 
-        stroke="white" 
-        stroke-width="40" 
-        stroke-linecap="round" 
-        stroke-linejoin="round" 
-        fill="none"/>
-        
-  <!-- Decorative circle -->
-  <circle cx="256" cy="256" r="180" 
-          stroke="rgba(255,255,255,0.2)" 
-          stroke-width="8" 
+  <!-- macOS Style Rounded Rect (filling most of the area) -->
+  <rect x="32" y="32" width="448" height="448" rx="100" fill="url(#bg)"/>
+  
+  <!-- Icon Graphics -->
+  <g filter="url(#innerShadow)">
+    <!-- Main Checkmark -->
+    <path d="M160 260 L230 330 L352 208" 
+          stroke="white" 
+          stroke-width="48" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
           fill="none"/>
+          
+    <!-- Decorative Circle (Glassmorphism effect) -->
+    <circle cx="256" cy="256" r="180" 
+            stroke="rgba(255,255,255,0.15)" 
+            stroke-width="12" 
+            fill="none"/>
+  </g>
+  
+  <!-- Reflective highlight -->
+  <rect x="32" y="32" width="448" height="224" rx="100" fill="white" opacity="0.05"/>
 </svg>
