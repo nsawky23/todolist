@@ -3,17 +3,20 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags like v1.0.0
+      - 'v*'
 
 jobs:
   release:
     name: Build and Release
     runs-on: ${{ matrix.os }}
-
     strategy:
+      fail-fast: false
       matrix:
-        # Build for both macOS and Windows
         os: [macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash # 强制所有平台使用 bash，避免 Windows 下的命令找不到问题
 
     steps:
       - name: Checkout Code
@@ -26,16 +29,12 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
-
-      # Better-sqlite3 and other native modules need to be rebuilt for the target OS
-      # Electron-builder handles this automatically during the build process
+        run: npm ci # 使用 ci 命令以获得更一致的依赖环境
 
       - name: Build and Package
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm run build
+        run: npm run build
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
