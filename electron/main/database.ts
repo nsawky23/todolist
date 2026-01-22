@@ -15,7 +15,7 @@ console.log('[Database] Data file location:', dbPath)
 const db = new Database(dbPath)
 
 // Database version - increment this when schema changes
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 // Initialize database with version control
 function initializeDatabase() {
@@ -92,8 +92,28 @@ function runMigrations(fromVersion: number) {
     }
   }
 
+  // Version 1 -> 2: Add soft delete support
+  if (fromVersion < 2) {
+    console.log('[Database] Running migration: v1 -> v2 (Soft delete support)')
+
+    // Add deleted_at column to todos table
+    try {
+      db.exec(`ALTER TABLE todos ADD COLUMN deleted_at TEXT`)
+      console.log('[Database] Added deleted_at column to todos table')
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add deleted_at column to groups table
+    try {
+      db.exec(`ALTER TABLE groups ADD COLUMN deleted_at TEXT`)
+      console.log('[Database] Added deleted_at column to groups table')
+    } catch (e) {
+      // Column might already exist
+    }
+  }
+
   // Future migrations would go here:
-  // if (fromVersion < 2) { ... }
   // if (fromVersion < 3) { ... }
 }
 
@@ -116,6 +136,7 @@ export interface Group {
   sort_order: number
   created_at: string
   updated_at: string
+  deleted_at: string | null
 }
 
 export interface Todo {
@@ -128,6 +149,7 @@ export interface Todo {
   created_at: string
   completed_at: string | null
   updated_at: string
+  deleted_at: string | null
 }
 
 export interface TodoWithGroup extends Todo {
@@ -137,12 +159,12 @@ export interface TodoWithGroup extends Todo {
 
 // Group operations
 export function getAllGroups(): Group[] {
-  return db.prepare('SELECT * FROM groups ORDER BY sort_order ASC').all() as Group[]
+  return db.prepare('SELECT * FROM groups WHERE deleted_at IS NULL ORDER BY sort_order ASC').all() as Group[]
 }
 
 export function createGroup(name: string, color: string): Group {
   const id = uuidv4()
-  const maxOrder = db.prepare('SELECT MAX(sort_order) as max FROM groups').get() as { max: number | null }
+  const maxOrder = db.prepare('SELECT MAX(sort_order) as max FROM groups WHERE deleted_at IS NULL').get() as { max: number | null }
   const sortOrder = (maxOrder.max ?? -1) + 1
 
   db.prepare('INSERT INTO groups (id, name, color, sort_order) VALUES (?, ?, ?, ?)').run(id, name, color, sortOrder)
@@ -167,8 +189,9 @@ export function updateGroupsOrder(orderedIds: string[]): void {
 
 export function deleteGroup(id: string): void {
   // Set todos in this group to have no group
-  db.prepare('UPDATE todos SET group_id = NULL WHERE group_id = ?').run(id)
-  db.prepare('DELETE FROM groups WHERE id = ?').run(id)
+  db.prepare('UPDATE todos SET group_id = NULL, updated_at = datetime(\'now\', \'localtime\') WHERE group_id = ? AND deleted_at IS NULL').run(id)
+  // Soft delete the group
+  db.prepare("UPDATE groups SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?").run(id)
 }
 
 // Query options interface
@@ -204,7 +227,7 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
     offset = 0
   } = options
 
-  const conditions: string[] = ['t.completed = ?']
+  const conditions: string[] = ['t.completed = ?', 't.deleted_at IS NULL']
   const params: any[] = [completed ? 1 : 0]
 
   // Group filter - support multiple groups
@@ -298,7 +321,7 @@ export function getTodoById(id: string): TodoWithGroup | null {
       g.color as group_color
     FROM todos t
     LEFT JOIN groups g ON t.group_id = g.id
-    WHERE t.id = ?
+    WHERE t.id = ? AND t.deleted_at IS NULL
   `
   return (db.prepare(sql).get(id) as TodoWithGroup) || null
 }
@@ -334,13 +357,14 @@ export function toggleTodoComplete(id: string): TodoWithGroup {
 }
 
 export function deleteTodo(id: string): void {
-  db.prepare('DELETE FROM todos WHERE id = ?').run(id)
+  // Soft delete - set deleted_at timestamp
+  db.prepare("UPDATE todos SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE id = ?").run(id)
 }
 
 // Statistics
 export function getStats(): { total: number; completed: number; pending: number } {
-  const total = (db.prepare('SELECT COUNT(*) as count FROM todos').get() as { count: number }).count
-  const completed = (db.prepare('SELECT COUNT(*) as count FROM todos WHERE completed = 1').get() as { count: number }).count
+  const total = (db.prepare('SELECT COUNT(*) as count FROM todos WHERE deleted_at IS NULL').get() as { count: number }).count
+  const completed = (db.prepare('SELECT COUNT(*) as count FROM todos WHERE completed = 1 AND deleted_at IS NULL').get() as { count: number }).count
   return {
     total,
     completed,
