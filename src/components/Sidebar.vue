@@ -6,12 +6,13 @@ const props = defineProps<{
   groups: Group[]
   stats: Stats
   activeTab: 'pending' | 'completed'
-  selectedGroupId: string | null
+  selectedGroupIds: string[]
 }>()
 
 const emit = defineEmits<{
   'update:activeTab': [tab: 'pending' | 'completed']
-  'update:selectedGroupId': [id: string | null]
+  'toggleGroup': [id: string]
+  'clearGroupSelection': []
   addGroup: []
   editGroup: [group: Group]
   deleteGroup: [id: string]
@@ -85,8 +86,8 @@ const onDragEnd = () => {
       <h3 class="nav-title">视图</h3>
       <button 
         class="nav-item"
-        :class="{ active: activeTab === 'pending' && !selectedGroupId }"
-        @click="emit('update:activeTab', 'pending'); emit('update:selectedGroupId', null)"
+        :class="{ active: activeTab === 'pending' && selectedGroupIds.length === 0 }"
+        @click="emit('update:activeTab', 'pending'); emit('clearGroupSelection')"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -99,7 +100,7 @@ const onDragEnd = () => {
       <button 
         class="nav-item"
         :class="{ active: activeTab === 'completed' }"
-        @click="emit('update:activeTab', 'completed'); emit('update:selectedGroupId', null)"
+        @click="emit('update:activeTab', 'completed'); emit('clearGroupSelection')"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -128,7 +129,7 @@ const onDragEnd = () => {
           :key="group.id"
           class="group-item"
           :class="{ 
-            active: selectedGroupId === group.id && activeTab === 'pending',
+            active: selectedGroupIds.includes(group.id),
             dragging: draggedGroupId === group.id,
             'drop-target': dropTargetId === group.id
           }"
@@ -137,7 +138,7 @@ const onDragEnd = () => {
           @dragover="onDragOver($event, group.id)"
           @drop="onDrop($event, group.id)"
           @dragend="onDragEnd"
-          @click="emit('update:selectedGroupId', group.id); emit('update:activeTab', 'pending')"
+          @click="emit('toggleGroup', group.id); emit('update:activeTab', 'pending')"
         >
           <div class="drag-handle no-drag">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -178,7 +179,7 @@ const onDragEnd = () => {
     
     <!-- Footer -->
     <div class="sidebar-footer">
-      <p class="app-info">Todo List v1.0</p>
+      <p class="app-info">Todo List v1.0.6</p>
     </div>
   </aside>
 </template>

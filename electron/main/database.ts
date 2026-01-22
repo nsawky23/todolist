@@ -176,7 +176,7 @@ export type SortByField = 'created_at' | 'due_date'
 
 export interface TodoQueryOptions {
   completed?: boolean
-  groupId?: string | null  // null = no group, undefined = all groups
+  groupIds?: string[]  // empty array = all groups, ['none'] = no group only
   sortBy?: SortByField  // which field to sort by
   sortOrder?: 'asc' | 'desc'  // sort direction
   startDate?: string  // YYYY-MM-DD format
@@ -195,7 +195,7 @@ export interface TodoQueryResult {
 export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
   const {
     completed = false,
-    groupId,
+    groupIds,
     sortBy = 'created_at',
     sortOrder = 'desc',
     startDate,
@@ -207,13 +207,24 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
   const conditions: string[] = ['t.completed = ?']
   const params: any[] = [completed ? 1 : 0]
 
-  // Group filter
-  if (groupId !== undefined) {
-    if (groupId === null) {
+  // Group filter - support multiple groups
+  if (groupIds && groupIds.length > 0) {
+    const hasNone = groupIds.includes('none')
+    const actualGroupIds = groupIds.filter(id => id !== 'none')
+
+    if (hasNone && actualGroupIds.length > 0) {
+      // Include both null group and specific groups
+      const placeholders = actualGroupIds.map(() => '?').join(', ')
+      conditions.push(`(t.group_id IS NULL OR t.group_id IN (${placeholders}))`)
+      params.push(...actualGroupIds)
+    } else if (hasNone) {
+      // Only null group
       conditions.push('t.group_id IS NULL')
     } else {
-      conditions.push('t.group_id = ?')
-      params.push(groupId)
+      // Only specific groups
+      const placeholders = actualGroupIds.map(() => '?').join(', ')
+      conditions.push(`t.group_id IN (${placeholders})`)
+      params.push(...actualGroupIds)
     }
   }
 

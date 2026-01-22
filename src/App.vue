@@ -12,7 +12,7 @@ const groups = ref<Group[]>([])
 const stats = ref<Stats>({ total: 0, completed: 0, pending: 0 })
 
 const activeTab = ref<'pending' | 'completed'>('pending')
-const selectedGroupId = ref<string | null>(null)
+const selectedGroupIds = ref<string[]>([])
 
 // Advanced Query State
 const sortBy = ref<SortByField>('created_at')
@@ -20,6 +20,7 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 const isGrouped = ref(false)
 const collapsedGroups = ref<Set<string | null>>(new Set())
 const showSortDropdown = ref(false)
+const showGroupDropdown = ref(false)
 
 // Completed Filter State
 const startDate = ref('')
@@ -88,9 +89,14 @@ const groupedTodos = computed(() => {
 })
 
 const pageTitle = computed(() => {
-  if (selectedGroupId.value) {
-    const group = groups.value.find(g => g.id === selectedGroupId.value)
+  if (selectedGroupIds.value.length === 1) {
+    const gid = selectedGroupIds.value[0]
+    if (gid === 'none') return '无分组'
+    const group = groups.value.find(g => g.id === gid)
     return group ? group.name : '待办事项'
+  }
+  if (selectedGroupIds.value.length > 1) {
+    return `${selectedGroupIds.value.length} 个分组`
   }
   return activeTab.value === 'pending' ? '待办事项' : '已完成'
 })
@@ -105,7 +111,8 @@ const loadTodos = async (append = false) => {
   
   const options: TodoQueryOptions = {
     completed: activeTab.value === 'completed',
-    groupId: selectedGroupId.value ?? undefined,
+    // Use spread to convert reactive array to plain array for IPC serialization
+    groupIds: selectedGroupIds.value.length > 0 ? [...selectedGroupIds.value] : undefined,
     sortBy: sortBy.value,
     sortOrder: sortOrder.value,
     startDate: startDate.value || undefined,
@@ -141,9 +148,9 @@ const refreshData = async () => {
 }
 
 // Watchers
-watch([activeTab, selectedGroupId, sortBy, sortOrder, startDate, endDate], () => {
+watch([activeTab, selectedGroupIds, sortBy, sortOrder, startDate, endDate], () => {
   loadTodos()
-})
+}, { deep: true })
 
 // Sort option helpers
 const sortOptions = [
@@ -163,6 +170,36 @@ const selectSort = (by: SortByField, order: 'asc' | 'desc') => {
   sortOrder.value = order
   showSortDropdown.value = false
 }
+
+// Group filter helpers
+const toggleGroupSelection = (groupId: string) => {
+  const index = selectedGroupIds.value.indexOf(groupId)
+  if (index === -1) {
+    selectedGroupIds.value.push(groupId)
+  } else {
+    selectedGroupIds.value.splice(index, 1)
+  }
+}
+
+const isGroupSelected = (groupId: string) => {
+  return selectedGroupIds.value.includes(groupId)
+}
+
+const clearGroupSelection = () => {
+  selectedGroupIds.value = []
+  showGroupDropdown.value = false
+}
+
+const selectedGroupsLabel = computed(() => {
+  if (selectedGroupIds.value.length === 0) return '全部分组'
+  if (selectedGroupIds.value.length === 1) {
+    const gid = selectedGroupIds.value[0]
+    if (gid === 'none') return '无分组'
+    const group = groups.value.find(g => g.id === gid)
+    return group?.name || '分组'
+  }
+  return `已选 ${selectedGroupIds.value.length} 个`
+})
 
 // UI Actions
 const toggleGroupCollapse = (groupId: string | null) => {
@@ -240,8 +277,10 @@ const handleSaveGroup = async (data: { name: string; color: string }) => {
 const handleDeleteGroup = async (id: string) => {
   if (confirm('确定要删除这个分组吗？分组内的待办事项不会被删除。')) {
     await window.api.groups.delete(id)
-    if (selectedGroupId.value === id) {
-      selectedGroupId.value = null
+    // Remove from selectedGroupIds if it was selected
+    const index = selectedGroupIds.value.indexOf(id)
+    if (index !== -1) {
+      selectedGroupIds.value.splice(index, 1)
     }
     await refreshData()
   }
@@ -266,9 +305,10 @@ onMounted(() => {
       :groups="groups"
       :stats="stats"
       :active-tab="activeTab"
-      :selected-group-id="selectedGroupId"
+      :selected-group-ids="selectedGroupIds"
       @update:active-tab="activeTab = $event"
-      @update:selected-group-id="selectedGroupId = $event"
+      @toggle-group="toggleGroupSelection"
+      @clear-group-selection="clearGroupSelection"
       @add-group="handleAddGroup"
       @edit-group="handleEditGroup"
       @delete-group="handleDeleteGroup"
@@ -310,15 +350,76 @@ onMounted(() => {
         <!-- Row 2: Filters -->
         <div class="header-filters-row no-drag">
           <div class="filter-group">
-            <!-- Group Selector -->
+            <!-- Group Multi-Select Dropdown -->
             <div class="filter-item">
               <label class="filter-label">分组:</label>
-              <select v-model="selectedGroupId" class="select-filter">
-                <option :value="null">全部分组</option>
-                <option v-for="group in groups" :key="group.id" :value="group.id">
-                  {{ group.name }}
-                </option>
-              </select>
+              <div class="group-dropdown-container">
+                <button 
+                  class="control-btn group-btn" 
+                  @click="showGroupDropdown = !showGroupDropdown"
+                  title="选择分组"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                  <span class="group-filter-label">{{ selectedGroupsLabel }}</span>
+                  <svg class="dropdown-arrow" :class="{ open: showGroupDropdown }" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                
+                <Transition name="dropdown">
+                  <div v-if="showGroupDropdown" class="group-dropdown">
+                    <div class="group-dropdown-header">
+                      <span>选择分组</span>
+                      <button 
+                        v-if="selectedGroupIds.length > 0" 
+                        class="clear-all-btn"
+                        @click="clearGroupSelection"
+                      >
+                        清除
+                      </button>
+                    </div>
+                    
+                    <div class="group-dropdown-content">
+                      <!-- No Group Option -->
+                      <button 
+                        class="group-option"
+                        :class="{ active: isGroupSelected('none') }"
+                        @click="toggleGroupSelection('none')"
+                      >
+                        <div class="group-option-check">
+                          <svg v-if="isGroupSelected('none')" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                        <span class="group-color-indicator" style="background-color: #94a3b8"></span>
+                        <span>无分组</span>
+                      </button>
+                      
+                      <!-- Group Options -->
+                      <button 
+                        v-for="group in groups" 
+                        :key="group.id"
+                        class="group-option"
+                        :class="{ active: isGroupSelected(group.id) }"
+                        @click="toggleGroupSelection(group.id)"
+                      >
+                        <div class="group-option-check">
+                          <svg v-if="isGroupSelected(group.id)" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                        <span class="group-color-indicator" :style="{ backgroundColor: group.color }"></span>
+                        <span>{{ group.name }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </Transition>
+                
+                <!-- Backdrop to close dropdown -->
+                <div v-if="showGroupDropdown" class="dropdown-backdrop" @click="showGroupDropdown = false"></div>
+              </div>
             </div>
 
             <!-- Date Range (Only for completed) -->
@@ -753,6 +854,118 @@ onMounted(() => {
   position: fixed;
   inset: 0;
   z-index: 99;
+}
+
+/* Group Dropdown Styles */
+.group-dropdown-container {
+  position: relative;
+}
+
+.group-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.group-btn:hover {
+  border-color: var(--color-border-hover);
+}
+
+.group-filter-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.group-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.clear-all-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.clear-all-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.group-dropdown-content {
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.group-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.group-option:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.group-option.active {
+  color: var(--color-text-primary);
+}
+
+.group-option-check {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.group-color-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* Dropdown transitions */

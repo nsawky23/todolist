@@ -32,7 +32,8 @@ export interface Stats {
 
 export interface TodoQueryOptions {
   completed?: boolean
-  groupId?: string | null
+  groupIds?: string[]  // empty array = all groups, ['none'] = no group only
+  sortBy?: 'created_at' | 'due_date'
   sortOrder?: 'asc' | 'desc'
   startDate?: string
   endDate?: string

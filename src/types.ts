@@ -33,7 +33,7 @@ export type SortByField = 'created_at' | 'due_date'
 
 export interface TodoQueryOptions {
     completed?: boolean
-    groupId?: string | null
+    groupIds?: string[]  // empty array = all groups, ['none'] = no group only
     sortBy?: SortByField
     sortOrder?: 'asc' | 'desc'
     startDate?: string
