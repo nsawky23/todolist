@@ -54,7 +54,11 @@ async function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
+    // On macOS, the Dock/app icon comes from the packaged .icns (CFBundleIconFile).
+    // Setting BrowserWindow icon can sometimes lead to confusing mismatches, so keep it to Win/Linux.
+    ...(process.platform === 'darwin'
+      ? {}
+      : { icon: path.join(process.env.VITE_PUBLIC, 'icon.png') }),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 15, y: 15 },
     backgroundColor: '#0f0f23',

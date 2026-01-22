@@ -29,9 +29,12 @@ export interface Stats {
     pending: number
 }
 
+export type SortByField = 'created_at' | 'due_date'
+
 export interface TodoQueryOptions {
     completed?: boolean
     groupId?: string | null
+    sortBy?: SortByField
     sortOrder?: 'asc' | 'desc'
     startDate?: string
     endDate?: string

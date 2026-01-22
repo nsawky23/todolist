@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import type { Todo, Group, Stats, TodoQueryOptions } from './types'
+import type { Todo, Group, Stats, TodoQueryOptions, SortByField } from './types'
 import Sidebar from './components/Sidebar.vue'
 import TodoItem from './components/TodoItem.vue'
 import TodoForm from './components/TodoForm.vue'
@@ -15,9 +15,11 @@ const activeTab = ref<'pending' | 'completed'>('pending')
 const selectedGroupId = ref<string | null>(null)
 
 // Advanced Query State
+const sortBy = ref<SortByField>('created_at')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const isGrouped = ref(false)
 const collapsedGroups = ref<Set<string | null>>(new Set())
+const showSortDropdown = ref(false)
 
 // Completed Filter State
 const startDate = ref('')
@@ -104,6 +106,7 @@ const loadTodos = async (append = false) => {
   const options: TodoQueryOptions = {
     completed: activeTab.value === 'completed',
     groupId: selectedGroupId.value ?? undefined,
+    sortBy: sortBy.value,
     sortOrder: sortOrder.value,
     startDate: startDate.value || undefined,
     endDate: endDate.value || undefined,
@@ -138,9 +141,28 @@ const refreshData = async () => {
 }
 
 // Watchers
-watch([activeTab, selectedGroupId, sortOrder, startDate, endDate], () => {
+watch([activeTab, selectedGroupId, sortBy, sortOrder, startDate, endDate], () => {
   loadTodos()
 })
+
+// Sort option helpers
+const sortOptions = [
+  { by: 'created_at' as SortByField, order: 'desc' as const, label: '创建时间 (最新优先)' },
+  { by: 'created_at' as SortByField, order: 'asc' as const, label: '创建时间 (最早优先)' },
+  { by: 'due_date' as SortByField, order: 'asc' as const, label: '到期时间 (即将到期)' },
+  { by: 'due_date' as SortByField, order: 'desc' as const, label: '到期时间 (最晚优先)' },
+]
+
+const currentSortLabel = computed(() => {
+  const opt = sortOptions.find(o => o.by === sortBy.value && o.order === sortOrder.value)
+  return opt?.label || '排序'
+})
+
+const selectSort = (by: SortByField, order: 'asc' | 'desc') => {
+  sortBy.value = by
+  sortOrder.value = order
+  showSortDropdown.value = false
+}
 
 // UI Actions
 const toggleGroupCollapse = (groupId: string | null) => {
@@ -314,19 +336,42 @@ onMounted(() => {
           </div>
 
           <div class="view-controls">
-            <button 
-              class="control-btn" 
-              :class="{ active: sortOrder === 'asc' }"
-              @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
-              :title="sortOrder === 'asc' ? '正序' : '倒序'"
-            >
-              <svg v-if="sortOrder === 'desc'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 12H3"></path><path d="M16 6H3"></path><path d="M16 18H3"></path><path d="M18 9l3 3-3 3"></path><path d="M21 12H11"></path>
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 12H3"></path><path d="M16 6H3"></path><path d="M16 18H3"></path><path d="M21 9l-3 3 3 3"></path><path d="M18 12H11"></path>
-              </svg>
-            </button>
+            <!-- Sort Dropdown -->
+            <div class="sort-dropdown-container">
+              <button 
+                class="control-btn sort-btn" 
+                @click="showSortDropdown = !showSortDropdown"
+                title="排序方式"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 12H3"></path><path d="M16 6H3"></path><path d="M16 18H3"></path><path d="M18 9l3 3-3 3"></path><path d="M21 12H11"></path>
+                </svg>
+                <span class="sort-label">{{ currentSortLabel }}</span>
+                <svg class="dropdown-arrow" :class="{ open: showSortDropdown }" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              
+              <Transition name="dropdown">
+                <div v-if="showSortDropdown" class="sort-dropdown">
+                  <button 
+                    v-for="option in sortOptions" 
+                    :key="`${option.by}-${option.order}`"
+                    class="sort-option"
+                    :class="{ active: sortBy === option.by && sortOrder === option.order }"
+                    @click="selectSort(option.by, option.order)"
+                  >
+                    <svg v-if="sortBy === option.by && sortOrder === option.order" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>{{ option.label }}</span>
+                  </button>
+                </div>
+              </Transition>
+              
+              <!-- Backdrop to close dropdown when clicking outside -->
+              <div v-if="showSortDropdown" class="dropdown-backdrop" @click="showSortDropdown = false"></div>
+            </div>
             
             <button 
               class="control-btn" 
@@ -439,15 +484,18 @@ onMounted(() => {
 <style scoped>
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--color-bg-primary);
+  overflow: hidden;
 }
 
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* Updated Header Styles */
@@ -458,6 +506,7 @@ onMounted(() => {
   padding-top: 40px;
   background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .header-top-row {
@@ -628,10 +677,101 @@ onMounted(() => {
   background: rgba(99, 102, 241, 0.1);
 }
 
+/* Sort Dropdown Styles */
+.sort-dropdown-container {
+  position: relative;
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.sort-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.dropdown-arrow {
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.sort-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.sort-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.sort-option:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.sort-option.active {
+  color: var(--color-accent);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.sort-option svg {
+  flex-shrink: 0;
+}
+
+.sort-option span {
+  flex: 1;
+}
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+/* Dropdown transitions */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 .todos-container {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  min-height: 0;
 }
 
 .todos-list {

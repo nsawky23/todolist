@@ -172,10 +172,13 @@ export function deleteGroup(id: string): void {
 }
 
 // Query options interface
+export type SortByField = 'created_at' | 'due_date'
+
 export interface TodoQueryOptions {
   completed?: boolean
   groupId?: string | null  // null = no group, undefined = all groups
-  sortOrder?: 'asc' | 'desc'  // by created_at
+  sortBy?: SortByField  // which field to sort by
+  sortOrder?: 'asc' | 'desc'  // sort direction
   startDate?: string  // YYYY-MM-DD format
   endDate?: string    // YYYY-MM-DD format
   limit?: number
@@ -193,6 +196,7 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
   const {
     completed = false,
     groupId,
+    sortBy = 'created_at',
     sortOrder = 'desc',
     startDate,
     endDate,
@@ -226,6 +230,24 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
   const whereClause = conditions.join(' AND ')
   const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
 
+  // Build ORDER BY clause based on sortBy field
+  let orderByClause: string
+  if (sortBy === 'due_date') {
+    // For due_date sorting:
+    // - Items with due_date come first, sorted by due_date
+    // - Items without due_date come after, sorted by created_at
+    if (sortOrder === 'asc') {
+      // Ascending: earliest due date first, then no due date items by created_at desc (newest first)
+      orderByClause = `CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END ASC, t.due_date ASC, t.created_at DESC`
+    } else {
+      // Descending: latest due date first, then no due date items by created_at desc
+      orderByClause = `CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END ASC, t.due_date DESC, t.created_at DESC`
+    }
+  } else {
+    // Default: sort by created_at
+    orderByClause = `t.created_at ${orderDirection}`
+  }
+
   // Get total count
   const countSql = `SELECT COUNT(*) as count FROM todos t WHERE ${whereClause}`
   const total = (db.prepare(countSql).get(...params) as { count: number }).count
@@ -240,7 +262,7 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
     FROM todos t
     LEFT JOIN groups g ON t.group_id = g.id
     WHERE ${whereClause}
-    ORDER BY t.created_at ${orderDirection}
+    ORDER BY ${orderByClause}
     LIMIT ? OFFSET ?
   `
   const items = db.prepare(sql).all(...params, limit, offset) as TodoWithGroup[]

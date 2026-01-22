@@ -23,7 +23,7 @@
       "dmg",
       "zip"
     ],
-    "icon": "build/icon.png",
+    "icon": "build/icon.icns",
     "category": "public.app-category.productivity",
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}",
     "darkModeSupport": true
