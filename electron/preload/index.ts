@@ -87,6 +87,13 @@ const api = {
   // System
   system: {
     getDatabasePath: (): Promise<string> => ipcRenderer.invoke('system:getDatabasePath'),
+  },
+
+  // Window Controls
+  window: {
+    minimize: () => ipcRenderer.send('window-min'),
+    maximize: () => ipcRenderer.send('window-max'),
+    close: () => ipcRenderer.send('window-close'),
   }
 }
 

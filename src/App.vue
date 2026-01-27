@@ -235,6 +235,13 @@ const openNewTodoForm = () => {
 onMounted(() => {
   refreshData()
   window.postMessage({ payload: 'removeLoading' }, '*')
+  
+  // Add platform class to body for platform-specific CSS
+  if (navigator.userAgent.includes('Windows')) {
+    document.body.classList.add('platform-windows')
+  } else if (navigator.userAgent.includes('Mac')) {
+    document.body.classList.add('platform-mac')
+  }
 })
 </script>
 
@@ -455,9 +462,14 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   padding: 12px 24px;
-  padding-top: 40px;
+  padding-top: 16px;
   background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* Mac: extra top padding for traffic lights */
+body.platform-mac .content-header {
+  padding-top: 40px;
 }
 
 .header-top-row {

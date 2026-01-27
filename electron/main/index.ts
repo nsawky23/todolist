@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, nativeTheme } from 'electron'
+import { app, BrowserWindow, shell, nativeTheme, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -48,6 +48,9 @@ const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
 async function createWindow() {
+  const isMac = process.platform === 'darwin'
+  const isWindows = process.platform === 'win32'
+
   win = new BrowserWindow({
     title: 'Todo List',
     width: 1200,
@@ -55,15 +58,29 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 15 },
-    backgroundColor: '#0f0f23',
+    // Platform-specific window styling
+    frame: isMac ? true : false, // Mac uses native frame, Windows is frameless
+    transparent: isWindows, // Only Windows needs transparency for rounded corners
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden', // Mac: native hidden inset, Windows: hidden
+    backgroundColor: isWindows ? '#00000000' : '#0f0f23', // Transparent on Windows, solid on Mac
+    trafficLightPosition: isMac ? { x: 15, y: 15 } : undefined, // Only for Mac
     webPreferences: {
       preload,
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
+
+  // Window control handlers
+  ipcMain.on('window-min', () => win?.minimize())
+  ipcMain.on('window-max', () => {
+    if (win?.isMaximized()) {
+      win.unmaximize()
+    } else {
+      win?.maximize()
+    }
+  })
+  ipcMain.on('window-close', () => win?.close())
 
   // Setup IPC handlers for database operations
   setupIpcHandlers()

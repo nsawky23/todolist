@@ -69,6 +69,11 @@ export interface Api {
     system: {
         getDatabasePath: () => Promise<string>
     }
+    window: {
+        minimize: () => void
+        maximize: () => void
+        close: () => void
+    }
 }
 
 declare global {

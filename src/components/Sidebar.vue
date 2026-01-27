@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Group, Stats } from '../types'
+import WindowControls from './WindowControls.vue'
+
+// Check if running on Windows
+const isWindows = computed(() => navigator.userAgent.includes('Windows'))
 
 const props = defineProps<{
   groups: Group[]
@@ -59,6 +63,7 @@ const onDragEnd = () => {
   <aside class="sidebar">
     <!-- App Header -->
     <div class="sidebar-header drag-region">
+      <WindowControls v-if="isWindows" />
       <div class="app-logo">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -196,7 +201,21 @@ const onDragEnd = () => {
 
 .sidebar-header {
   padding: var(--spacing-lg);
-  padding-top: 48px; /* Space for macOS traffic lights */
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Mac: extra top padding for traffic lights */
+:global(body.platform-mac) .sidebar-header {
+  padding-top: 48px;
+}
+
+/* Windows: rounded corners for frameless window */
+:global(body.platform-windows) .sidebar {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
 }
 
 .app-logo {
