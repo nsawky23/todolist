@@ -22,7 +22,7 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.2",
+    "@electron/rebuild": "^4.0.3",
     "@types/better-sqlite3": "^7.6.9",
     "@vitejs/plugin-vue": "^5.0.4",
     "electron": "^29.1.1",
