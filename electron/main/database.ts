@@ -251,13 +251,14 @@ export function queryTodos(options: TodoQueryOptions): TodoQueryResult {
     }
   }
 
-  // Date range filter (for completed items)
+  // Date range filter
+  const dateColumn = completed ? 't.completed_at' : 't.created_at'
   if (startDate) {
-    conditions.push('date(t.created_at) >= ?')
+    conditions.push(`date(${dateColumn}) >= ?`)
     params.push(startDate)
   }
   if (endDate) {
-    conditions.push('date(t.created_at) <= ?')
+    conditions.push(`date(${dateColumn}) <= ?`)
     params.push(endDate)
   }
 

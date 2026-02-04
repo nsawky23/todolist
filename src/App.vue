@@ -25,6 +25,24 @@ const showGroupDropdown = ref(false)
 // Completed Filter State
 const startDate = ref('')
 const endDate = ref('')
+const completedRangeInitialized = ref(false)
+
+const formatDateInputValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  return `${year}-${month}-${day}`
+}
+
+const setDefaultCompletedDateRange = () => {
+  const today = new Date()
+  const threeMonthsAgo = new Date(today)
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+  startDate.value = formatDateInputValue(threeMonthsAgo)
+  endDate.value = formatDateInputValue(today)
+  completedRangeInitialized.value = true
+}
 const hasMore = ref(false)
 const totalCount = ref(0)
 const limit = 200
@@ -149,6 +167,15 @@ const refreshData = async () => {
 
 // Watchers
 watch([activeTab, selectedGroupIds, sortBy, sortOrder, startDate, endDate], () => {
+  if (
+    activeTab.value === 'completed' &&
+    !startDate.value &&
+    !endDate.value &&
+    !completedRangeInitialized.value
+  ) {
+    setDefaultCompletedDateRange()
+    return
+  }
   loadTodos()
 }, { deep: true })
 
